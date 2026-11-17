@@ -1,25 +1,25 @@
 {
   "login": "antomanc",
   "seed": 969058,
-  "total": 1119,
+  "total": 1121,
   "active": 57,
-  "last30": 716,
+  "last30": 718,
   "streak": 6,
   "longest": 10,
   "prs": 108,
   "stars": 79,
   "languages": [
     {
-      "name": "JavaScript",
-      "color": "#f1e05a"
-    },
-    {
       "name": "TypeScript",
       "color": "#3178c6"
     },
     {
-      "name": "PLpgSQL",
-      "color": "#336790"
+      "name": "JavaScript",
+      "color": "#f1e05a"
+    },
+    {
+      "name": "Kotlin",
+      "color": "#A97BFF"
     }
   ]
 }
