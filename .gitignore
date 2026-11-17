@@ -1,0 +1,5 @@
+scene
+*.ppm
+*.c
+out/
+node_modules/

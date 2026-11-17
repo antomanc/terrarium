@@ -1,0 +1,65 @@
+name: Bend Terrarium
+description: Grow a voxel terrarium from your GitHub activity, ray traced in Bend, as day and AMOLED night phone wallpapers.
+author: antomanc
+branding:
+  icon: sun
+  color: green
+
+inputs:
+  username:
+    description: The GitHub login the terrarium grows from.
+    default: ${{ github.repository_owner }}
+  token:
+    description: A token for the GitHub GraphQL API.
+    default: ${{ github.token }}
+  out:
+    description: The directory that receives day.png, night.png and terrarium.json.
+    default: terrarium
+  commit:
+    description: Commit and push the new images ("true" or "false").
+    default: "true"
+
+runs:
+  using: composite
+  steps:
+    - name: Install Bend
+      shell: bash
+      env:
+        BEND_NO_TELEMETRY: "1"
+      run: |
+        curl -fsSL https://bend-lang.com/install.sh | sh
+        echo "$HOME/.bend/bin" >> "$GITHUB_PATH"
+
+    - name: Check the laws and build the renderer
+      shell: bash
+      env:
+        BEND_NO_TELEMETRY: "1"
+      working-directory: ${{ github.action_path }}
+      run: |
+        bend PROOF.bend
+        bend scene.bend -o "$RUNNER_TEMP/terrarium-scene"
+
+    - name: Render
+      shell: bash
+      env:
+        GITHUB_TOKEN: ${{ inputs.token }}
+        TERRARIUM_SCENE: ${{ runner.temp }}/terrarium-scene
+        LOGIN: ${{ inputs.username }}
+        OUT: ${{ inputs.out }}
+      run: node "$GITHUB_ACTION_PATH/terrarium.mjs" "$LOGIN" --out "$OUT"
+
+    - name: Commit
+      if: inputs.commit == 'true'
+      shell: bash
+      env:
+        OUT: ${{ inputs.out }}
+      run: |
+        git config user.name "github-actions[bot]"
+        git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+        git add "$OUT"
+        if git diff --cached --quiet; then
+          echo "the terrarium did not change"
+        else
+          git commit -m "terrarium: grow"
+          git push
+        fi

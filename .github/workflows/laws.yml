@@ -1,0 +1,22 @@
+# The gate: every push must keep LAWS.bend proven.
+name: laws
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  laws:
+    runs-on: ubuntu-latest
+    env:
+      BEND_NO_TELEMETRY: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Bend
+        run: |
+          curl -fsSL https://bend-lang.com/install.sh | sh
+          echo "$HOME/.bend/bin" >> "$GITHUB_PATH"
+      - name: Prove the laws
+        run: bend PROOF.bend
+      - name: Build the renderer
+        run: bend scene.bend -o scene
