@@ -7,6 +7,10 @@
 <h1 align="center">Terrarium</h1>
 
 <p align="center">
+  <a href="https://antomanc.github.io/terrarium/"><b>Get yours as a wallpaper →</b></a>
+</p>
+
+<p align="center">
   <b>Your GitHub year, grown into a tiny voxel world.</b><br>
   Ray traced in <a href="https://github.com/bendlang/bend">Bend</a>, on every core, as phone wallpapers.<br>
   The night one is AMOLED: the sky is true black, so the pixels are off.
@@ -14,8 +18,10 @@
 
 ---
 
-Every night a GitHub Action reads your profile and regrows your island.
-The images above are mine, regrown from my own activity every night.
+There are two ways to grow one:
+
+- **[The website](https://antomanc.github.io/terrarium/)**: type a username and save the wallpaper. It renders at your screen's exact resolution (foldables included) on your own GPU. No sign-in and no setup.
+- **The GitHub Action**: regrows your island every night and commits it to your profile README. The images above are mine, regrown that way.
 
 ## How your profile grows it
 
@@ -56,7 +62,18 @@ Location: Laws.every_mushroom_glows
 Bend's floats are axiomatic, so geometry and colours are not claimed. The laws cover the discrete
 parts of the scene, the things you count.
 
-## Grow your own
+## In the browser
+
+[antomanc.github.io/terrarium](https://antomanc.github.io/terrarium/) is a static page on GitHub Pages:
+
+1. It reads public data: GitHub's REST API for repositories, stars and pull requests, and [github-contributions-api](https://github.com/grubersjoe/github-contributions-api) for the daily calendar, which GitHub only serves with a token.
+2. It runs **the same `scene.bend`**, compiled to JavaScript with `bend scene.bend -o web/scene.mjs`, to grow the garden and decide every voxel and every light. The laws hold there too.
+3. A WebGL2 port of the shading ([`web/gl.js`](web/gl.js)) ray traces the 64³ world on the GPU, in bands so a phone never stalls.
+
+`?u=<login>` opens someone's island, `&m=day` picks the day, `&s=<preset>` a size.
+Without a token the site sees only public repositories and each one's main language, so its crystals can differ from the Action's.
+
+## Grow your own with the Action
 
 1. Create (or open) the repository named after your login: `<you>/<you>`, your profile README.
 2. Add `.github/workflows/terrarium.yml`:

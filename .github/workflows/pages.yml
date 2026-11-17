@@ -1,0 +1,42 @@
+# Publishes web/ to GitHub Pages, with scene.bend compiled to JavaScript:
+# the site grows each island with the same Bend code (and laws) as the action.
+name: pages
+
+on:
+  push:
+    branches: [main]
+    paths: ["web/**", "scene.bend", "LAWS.bend", "PROOF.bend", ".github/workflows/pages.yml"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    env:
+      BEND_NO_TELEMETRY: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Bend
+        run: |
+          curl -fsSL https://bend-lang.com/install.sh | sh
+          echo "$HOME/.bend/bin" >> "$GITHUB_PATH"
+      - name: Prove the laws and compile the world to JavaScript
+        run: |
+          bend PROOF.bend
+          bend scene.bend -o web/scene.mjs
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: web
+      - id: deploy
+        uses: actions/deploy-pages@v4

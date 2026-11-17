@@ -3,3 +3,4 @@ scene
 *.c
 out/
 node_modules/
+web/scene.mjs
