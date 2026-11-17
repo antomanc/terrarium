@@ -1,7 +1,7 @@
 <p align="center">
-  <img src="terrarium/night.png" width="300" alt="A floating voxel island at night: a blossoming tree, glowing mushrooms, language-coloured crystals and fireflies on a pure black sky">
+  <img src="terrarium/phone-night.png" width="300" alt="A floating voxel island at night: a blossoming tree, glowing mushrooms, language-coloured crystals and fireflies on a pure black sky">
   &nbsp;&nbsp;
-  <img src="terrarium/day.png" width="300" alt="The same island by day under a blue sky">
+  <img src="terrarium/phone-day.png" width="300" alt="The same island by day under a blue sky">
 </p>
 
 <h1 align="center">Terrarium</h1>
@@ -77,11 +77,11 @@ parts of the scene, the things you count.
          - uses: antomanc/terrarium@main
    ```
 
-3. Run it once from the Actions tab. It commits `terrarium/day.png` and `terrarium/night.png`.
+3. Run it once from the Actions tab. It commits `terrarium/banner-night.png`, `terrarium/phone-night.png` and their day twins.
 4. Show it in your README:
 
    ```html
-   <img src="terrarium/night.png" width="260">
+   <img src="terrarium/banner-night.png" width="100%">
    ```
 
 5. Set the night one as your phone's wallpaper.
@@ -90,8 +90,26 @@ parts of the scene, the things you count.
 |---|---|---|
 | `username` | the repository owner | whose activity grows the island |
 | `token` | `github.token` | private contributions count only if your profile shows them; a PAT with `read:user` also works |
-| `out` | `terrarium` | where the images go |
+| `sizes` | `banner phone` | presets or `WIDTHxHEIGHT`, space-separated: see below |
+| `modes` | `night day` | `night` is AMOLED black, `day` has a blue sky |
+| `out` | `terrarium` | where the images go, as `<size>-<mode>.png` |
 | `commit` | `true` | commit and push the images |
+
+### Sizes
+
+| Preset | Pixels | For |
+|---|---|---|
+| `banner` | 1280×640 | the top of a profile README |
+| `phone` | 1080×2340 | most 20:9 phones |
+| `phone-hd` | 1440×3120 | QHD+ phones |
+| `fold-cover` | 1080×2520 | a Galaxy Z Fold cover screen |
+| `fold-inner` | 1968×2184 | a Galaxy Z Fold inner screen, held as a book |
+| `tablet` | 1600×2560 | portrait tablets |
+| `desktop` | 3840×2160 | 4K monitors |
+| `square` | 1080×1080 | avatars and posts |
+
+Any `WIDTHxHEIGHT` works too, e.g. `sizes: banner 1440x3200`. The island frames itself in any
+aspect: low on tall screens (under the lock-screen clock), centered on wide ones.
 
 ## Run it locally
 
@@ -99,7 +117,8 @@ parts of the scene, the things you count.
 curl -fsSL https://bend-lang.com/install.sh | sh   # Bend, plus clang 14 or newer
 bend PROOF.bend                                    # the laws
 bend scene.bend -o scene                           # the renderer
-node terrarium.mjs [login] --out out               # uses $GITHUB_TOKEN or `gh auth token`
+node terrarium.mjs [login] --out out --sizes "banner phone" --modes "night day"
+                                                   # uses $GITHUB_TOKEN or `gh auth token`
 ```
 
 ## How it works
@@ -109,7 +128,7 @@ node terrarium.mjs [login] --out out               # uses $GITHUB_TOKEN or `gh a
   - **Grows** the garden from those numbers.
   - **Voxelizes** a 64³ island procedurally: no scene data, a function per voxel.
   - **Ray traces** it in isometric projection: grid traversal (DDA), moon or sun shadows, voxel ambient occlusion, coloured light from every mushroom, crystal and firefly, and 4 samples per pixel.
-  - **Splits the work**: the 2340 rows of a 1080×2340 frame are split in a binary tree of parallel calls, which Bend spreads over every core with no threads or locks in the code. A frame takes about 5 s on 16 cores.
+  - **Splits the work**: the rows of a frame are split in a binary tree of parallel calls, which Bend spreads over every core with no threads or locks in the code. A 1080×2340 frame takes about 5 s on 16 cores, and about 25 s on a GitHub runner.
 
 ## Limits
 

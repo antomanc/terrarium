@@ -12,8 +12,14 @@ inputs:
   token:
     description: A token for the GitHub GraphQL API.
     default: ${{ github.token }}
+  sizes:
+    description: Space-separated sizes, presets or WIDTHxHEIGHT. Presets are banner (1280x640), phone (1080x2340), phone-hd (1440x3120), fold-cover (1080x2520), fold-inner (1968x2184), tablet (1600x2560), desktop (3840x2160) and square (1080x1080).
+    default: banner phone
+  modes:
+    description: Space-separated modes, night (AMOLED) and/or day.
+    default: night day
   out:
-    description: The directory that receives day.png, night.png and terrarium.json.
+    description: The directory that receives <size>-<mode>.png and terrarium.json.
     default: terrarium
   commit:
     description: Commit and push the new images ("true" or "false").
@@ -46,6 +52,8 @@ runs:
         TERRARIUM_SCENE: ${{ runner.temp }}/terrarium-scene
         LOGIN: ${{ inputs.username }}
         OUT: ${{ inputs.out }}
+        SIZES: ${{ inputs.sizes }}
+        MODES: ${{ inputs.modes }}
       run: node "$GITHUB_ACTION_PATH/terrarium.mjs" "$LOGIN" --out "$OUT"
 
     - name: Commit

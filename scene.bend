@@ -4,12 +4,18 @@
 #
 #   bend scene.bend -o scene
 #   ./scene <day> <seed> <total> <active> <last30> <streak> <longest> <prs>
-#           <stars> <rgb1> <rgb2> <rgb3>          (writes day.ppm or night.ppm)
+#           <stars> <rgb1> <rgb2> <rgb3> [<width> <height>]  (writes frame.ppm)
 import Base
 
 type Stats is Data:
   Stats{day: U32, seed: U32, total: U32, active: U32, last30: U32,
-    streak: U32, longest: U32, prs: U32, stars: U32, c1: U32, c2: U32, c3: U32}
+    streak: U32, longest: U32, prs: U32, stars: U32, c1: U32, c2: U32, c3: U32,
+    w: U32, h: U32}
+
+# How a frame of any size sees the island: the screen point of the island's
+# center, world units per pixel, and the star grid.
+type View is Data:
+  View{cx: F32, cy: F32, upp: F32, h: F32, cell: F32, s: F32, ncell: U32}
 
 # What the stats grow into. Every field is read by the voxel function.
 type Garden is Data:
@@ -99,7 +105,7 @@ def Grow.log2(+n: U32) -> F32:
   U32.to_f32(U32.from_nat(U32.log2((n + 1 : U32))))
 
 def Grow.garden(+s: Stats) -> Garden:
-  Stats{day, seed, total, active, last30, streak, longest, prs, stars, c1, c2, c3} = s
+  Stats{day, seed, total, active, last30, streak, longest, prs, stars, c1, c2, c3, w, h} = s
   +size = T.fmin(3.0, (Grow.log2(total) * 0.3 : F32))
   +cr = ((2.4 + size) * 2.0 : F32)
   +trunk = ((3.0 + size * 1.3) * 2.0 : F32)
@@ -595,27 +601,29 @@ def Shd.surf(
         Mat.albg(g, m), Mat.glow(g, m))
 
 # The sky: black with a star per GitHub star at night; a soft gradient by day.
-def Sky.star(+fx: F32, +fy: F32, +seed: U32, +stars: U32) -> F32:
-  +cx = F32.floor((fx / 40.0 : F32))
-  +cy = F32.floor((fy / 40.0 : F32))
+def Sky.star(+v: View, +fx: F32, +fy: F32, +seed: U32, +stars: U32) -> F32:
+  View{vcx, vcy, upp, vh, cell, sc, ncell} = v
+  +cx = F32.floor((fx / cell : F32))
+  +cy = F32.floor((fy / cell : F32))
   +h = T.hash(F32.to_u32(cx), F32.to_u32(cy), (seed .^. 777 : U32))
-  +on = ((h % 1566 : U32) < stars : U32)
-  +sx = (cx * 40.0 + 5.0 + U32.to_f32((h / 1566 % 30 : U32)) : F32)
-  +sy = (cy * 40.0 + 5.0 + U32.to_f32((h / 46980 % 30 : U32)) : F32)
-  +d2 = ((fx - sx) * (fx - sx) + (fy - sy) * (fy - sy) : F32)
-  +b = (0.35 + U32.to_f32((h / 1409400 % 64 : U32)) * 0.012 : F32)
+  +on = ((h % ncell : U32) < stars : U32)
+  +sx = ((cx + 0.125 + U32.to_f32((h / 7 % 30 : U32)) * 0.025) * cell : F32)
+  +sy = ((cy + 0.125 + U32.to_f32((h / 210 % 30 : U32)) * 0.025) * cell : F32)
+  +d2 = (((fx - sx) * (fx - sx) + (fy - sy) * (fy - sy)) / (sc * sc) : F32)
+  +b = (0.35 + U32.to_f32((h / 6300 % 64 : U32)) * 0.012 : F32)
   T.pick(on, (b * F32.exp((0.0 - d2 * 0.6 : F32)) : F32), 0.0)
 
-def Sky.at(+g: Garden, +stars: U32, +fx: F32, +fy: F32) -> Rgb:
+def Sky.at(+g: Garden, +stars: U32, +vw: View, +fx: F32, +fy: F32) -> Rgb:
   Garden{day, seed, trunk, ccy, cr2, bloom, mush, flow, snow, c1, c2, c3} = g
-  +v = T.clamp01((fy / 2340.0 : F32))
-  +s = Sky.star(fx, fy, seed, stars)
+  View{vcx, vcy, upp, vh, cell, sc, ncell} = vw
+  +v = T.clamp01((fy / vh : F32))
+  +s = Sky.star(vw, fx, fy, seed, stars)
   Rgb.pick(day,
     Rgb{(0.10 + 0.95 * v * v : F32), (0.30 + 0.50 * v * v : F32), (0.80 - 0.15 * v * v : F32)},
     Rgb{(s * 0.9 : F32), (s * 0.95 : F32), s})
 
 def Shd.hit(
-  h: Hit, +g: Garden, +ls: List<&2, Lt>, +stars: U32, +fx: F32, +fy: F32,
+  h: Hit, +g: Garden, +ls: List<&2, Lt>, +stars: U32, +v: View, +fx: F32, +fy: F32,
   +ox: F32, +oy: F32, +oz: F32
 ) -> Rgb:
   Hit{+m, +ax, +t} = h
@@ -623,33 +631,46 @@ def Shd.hit(
   +miss = U32.is_eq(m, 255)
   +tmax = T.pick(miss, 100000.0, t)
   +glow = Rgb.pick(day, Rgb{0.0, 0.0, 0.0}, Glow.sum(ls, ox, oy, oz, tmax, Rgb{0.0, 0.0, 0.0}))
-  +back = Rgb.pick(miss, Sky.at(g, stars, fx, fy), Rgb{0.0, 0.0, 0.0})
+  +back = Rgb.pick(miss, Sky.at(g, stars, v, fx, fy), Rgb{0.0, 0.0, 0.0})
   Rgb.add(Rgb.add(Shd.surf(miss, g, ls, m, ax, t, ox, oy, oz), glow), back)
 
 # Pixels
 # ------
-# Screen 1080 x 2340; 34 world units across; the island sits at 59% height.
+# The island fills about three quarters of the frame's tighter side; on a
+# tall phone it sits low, under the lock screen's clock.
 
-def Px.color(+g: Garden, +ls: List<&2, Lt>, +stars: U32, +fx: F32, +fy: F32) -> Rgb:
-  +sx = ((fx - 540.0) * 0.063 : F32)
-  +sy = ((1380.0 - fy) * 0.063 : F32)
+def View.make(+w: U32, +h: U32) -> View:
+  +fw = U32.to_f32(w)
+  +fh = U32.to_f32(h)
+  +upp = T.fmax((65.5 / fw : F32), (75.6 / fh : F32))
+  +s = (0.063 / upp : F32)
+  +cell = (40.0 * s : F32)
+  +nx = F32.to_u32(F32.ceil((fw / cell : F32)))
+  +ny = F32.to_u32(F32.ceil((fh / cell : F32)))
+  View{(fw * 0.5 : F32), (fh * T.pick((fh > fw * 1.6 : F32), 0.59, 0.54) : F32), upp, fh,
+    cell, s, (nx * ny : U32)}
+
+def Px.color(+g: Garden, +ls: List<&2, Lt>, +stars: U32, +v: View, +fx: F32, +fy: F32) -> Rgb:
+  View{vcx, vcy, upp, vh, cell, sc, ncell} = v
+  +sx = ((fx - vcx) * upp : F32)
+  +sy = ((vcy - fy) * upp : F32)
   +ox = (107.06 + sx * 0.70711 - sy * 0.40825 : F32)
   +oy = (101.06 + sy * 0.8165 : F32)
   +oz = (107.06 - sx * 0.70711 - sy * 0.40825 : F32)
   Shd.hit(Ray.cast(g, ox, oy, oz, Cam.dx(), Cam.dy(), Cam.dz()), g, ls, stars,
-    fx, fy, ox, oy, oz)
+    v, fx, fy, ox, oy, oz)
 
 def Rgb.quarter(c: Rgb) -> Rgb:
   Rgb.scale(c, 0.25)
 
 # 2x2 supersampling
-def Px.aa(+g: Garden, +ls: List<&2, Lt>, +stars: U32, +x: U32, +y: U32) -> Rgb:
+def Px.aa(+g: Garden, +ls: List<&2, Lt>, +stars: U32, +v: View, +x: U32, +y: U32) -> Rgb:
   +fx = U32.to_f32(x)
   +fy = U32.to_f32(y)
-  +a = Px.color(g, ls, stars, (fx + 0.25 : F32), (fy + 0.25 : F32))
-  +b = Px.color(g, ls, stars, (fx + 0.75 : F32), (fy + 0.25 : F32))
-  +c = Px.color(g, ls, stars, (fx + 0.25 : F32), (fy + 0.75 : F32))
-  +d = Px.color(g, ls, stars, (fx + 0.75 : F32), (fy + 0.75 : F32))
+  +a = Px.color(g, ls, stars, v, (fx + 0.25 : F32), (fy + 0.25 : F32))
+  +b = Px.color(g, ls, stars, v, (fx + 0.75 : F32), (fy + 0.25 : F32))
+  +c = Px.color(g, ls, stars, v, (fx + 0.25 : F32), (fy + 0.75 : F32))
+  +d = Px.color(g, ls, stars, v, (fx + 0.75 : F32), (fy + 0.75 : F32))
   Rgb.quarter(Rgb.add(Rgb.add(a, b), Rgb.add(c, d)))
 
 def Tone.ch(+c: F32) -> U32:
@@ -662,35 +683,43 @@ def Tone.push(c: Rgb, acc: List<&2, U32>) -> List<&2, U32>:
   Tone.ch(r) <> Tone.ch(g) <> Tone.ch(b) <> acc
 
 def Row.go(
-  +n: Nat, +g: Garden, +ls: List<&2, Lt>, +stars: U32, +y: U32,
+  +n: Nat, +g: Garden, +ls: List<&2, Lt>, +stars: U32, +v: View, +y: U32,
   acc: List<&2, U32>
 ) -> List<&2, U32>:
   match n:
     case 0n:
       acc
     case 1n+k:
-      Row.go(k, g, ls, stars, y, Tone.push(Px.aa(g, ls, stars, U32.from_nat(k), y), acc))
+      Row.go(k, g, ls, stars, v, y, Tone.push(Px.aa(g, ls, stars, v, U32.from_nat(k), y), acc))
 
-def Rows.leaf(ok: Bool, +g: Garden, +ls: List<&2, Lt>, +stars: U32, +y: U32) -> Rows:
+def Rows.leaf(
+  ok: Bool, +g: Garden, +ls: List<&2, Lt>, +stars: U32, +v: View, +w: Nat, +y: U32
+) -> Rows:
   match ok:
     case True{}:
-      RLeaf{Row.go(1080n, g, ls, stars, y, [])}
+      RLeaf{Row.go(w, g, ls, stars, v, y, [])}
     case False{}:
       RLeaf{[]}
 
-def Rows.go(+d: Nat, +g: Garden, +ls: List<&2, Lt>, +stars: U32, +y: U32) -> Rows:
+# The rows of the frame as a balanced tree of parallel calls: 2^d leaves,
+# the ones past the last row empty.
+def Rows.go(
+  +d: Nat, +g: Garden, +ls: List<&2, Lt>, +stars: U32, +v: View, +w: Nat,
+  +h: U32, +y: U32
+) -> Rows:
   match d:
     case 0n:
-      Rows.leaf((y < 2340 : U32), g, ls, stars, y)
+      Rows.leaf((y < h : U32), g, ls, stars, v, w, y)
     case 1n+e:
-      +h = U32.shln(1, e)
-      a b = Rows.go(e, g, ls, stars, y) Rows.go(e, g, ls, stars, (y + h : U32))
+      +step = U32.shln(1, e)
+      a b = Rows.go(e, g, ls, stars, v, w, h, y) Rows.go(e, g, ls, stars, v, w, h, (y + step : U32))
       RNode{a, b}
 
 def Render.go(+s: Stats) -> Rows:
-  Stats{day, seed, total, active, last30, streak, longest, prs, stars, c1, c2, c3} = s
+  Stats{day, seed, total, active, last30, streak, longest, prs, stars, c1, c2, c3, w, h} = s
   +g = Grow.garden(s)
-  Rows.go(12n, g, Lights.all(g, streak), stars, 0)
+  Rows.go(1n+U32.log2((h - 1 : U32)), g, Lights.all(g, streak), stars, View.make(w, h),
+    U32.to_nat(w), h, 0)
 
 # Input and output
 # ----------------
@@ -708,18 +737,13 @@ def Args.at(+ns: List<&2, U32>, n: Nat) -> U32:
 def Args.stats(+ns: List<&2, U32>) -> Stats:
   Stats{Args.at(ns, 1n), Args.at(ns, 2n), Args.at(ns, 3n), Args.at(ns, 4n),
     Args.at(ns, 5n), Args.at(ns, 6n), Args.at(ns, 7n), Args.at(ns, 8n),
-    Args.at(ns, 9n), Args.at(ns, 10n), Args.at(ns, 11n), Args.at(ns, 12n)}
+    Args.at(ns, 9n), Args.at(ns, 10n), Args.at(ns, 11n), Args.at(ns, 12n),
+    T.word(U32.is_eq(Args.at(ns, 13n), 0), 1080, Args.at(ns, 13n)),
+    T.word(U32.is_eq(Args.at(ns, 14n), 0), 2340, Args.at(ns, 14n))}
 
-def Out.pick(night: Bool) -> String:
-  match night:
-    case True{}:
-      "night.ppm"
-    case False{}:
-      "day.ppm"
-
-def Out.name(+s: Stats) -> String:
-  Stats{day, seed, total, active, last30, streak, longest, prs, stars, c1, c2, c3} = s
-  Out.pick(U32.is_eq(day, 0))
+def Out.header(+s: Stats) -> String:
+  Stats{day, seed, total, active, last30, streak, longest, prs, stars, c1, c2, c3, w, h} = s
+  "P6\n" ++ U32.show(w) ++ " " ++ U32.show(h) ++ "\n255\n"
 
 def Out.fst(p: File & Result<&1, &1, U32 & String, Unit>) -> File:
   (f, r) = p
@@ -740,8 +764,8 @@ def main() -> IO(Unit):
   do IO<Unit>:
     args : List<String> <- IO.args()
     +s : Stats = Args.stats(Args.nums(args))
-    f : File <- IO.try(File, File.open(Out.name(s), "w"))
-    p : File & Result<&1, &1, U32 & String, Unit> <- File.write(f, "P6\n1080 2340\n255\n")
+    f : File <- IO.try(File, File.open("frame.ppm", "w"))
+    p : File & Result<&1, &1, U32 & String, Unit> <- File.write(f, Out.header(s))
     rows : Rows = Render.go(s)
     f3 : File <- Out.go(rows, Out.fst(p))
     File.close(f3)

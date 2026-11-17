@@ -1,10 +1,12 @@
 #!/usr/bin/env node
 // Reads a GitHub profile, turns it into the numbers the Bend renderer grows
-// a terrarium from, and renders two phone wallpapers: day.png and night.png
-// (AMOLED: a pure black sky).
+// a terrarium from, and renders it at every size and mode asked for, as
+// <size>-<mode>.png. Night is AMOLED: a pure black sky.
 //
-//   node terrarium.mjs [login] [--out dir]
+//   node terrarium.mjs [login] [--out dir] [--sizes "banner phone 1440x3120"]
+//                      [--modes "night day"]
 //
+// Sizes are presets (see SIZES below) or WIDTHxHEIGHT.
 // Token: $GITHUB_TOKEN, else `gh auth token`. Renderer: $TERRARIUM_SCENE, else ./scene
 // (build it with `bend scene.bend -o scene`).
 import { execFileSync } from "node:child_process";
@@ -12,10 +14,35 @@ import { readFileSync, writeFileSync, mkdirSync, rmSync } from "node:fs";
 import { resolve, join } from "node:path";
 import { deflateSync } from "node:zlib";
 
+const SIZES = {
+  banner: [1280, 640],         // a profile README header
+  phone: [1080, 2340],         // most 20:9 phones
+  "phone-hd": [1440, 3120],    // QHD+ phones
+  "fold-cover": [1080, 2520],  // Galaxy Z Fold cover screen
+  "fold-inner": [1968, 2184],  // Galaxy Z Fold inner screen, held as a book
+  tablet: [1600, 2560],
+  desktop: [3840, 2160],
+  square: [1080, 1080],
+};
+
 const argv = process.argv.slice(2);
-const outAt = argv.indexOf("--out");
-const out = resolve(outAt >= 0 ? argv[outAt + 1] : ".");
-const positional = argv.filter((a, i) => outAt < 0 || (i !== outAt && i !== outAt + 1));
+const flags = {};
+const positional = [];
+for (let i = 0; i < argv.length; i++) {
+  if (argv[i].startsWith("--")) flags[argv[i].slice(2)] = argv[++i];
+  else positional.push(argv[i]);
+}
+const out = resolve(flags.out || ".");
+const words = s => s.split(/[\s,]+/).filter(Boolean);
+const sizes = words(flags.sizes || process.env.SIZES || "banner phone").map(name => {
+  const m = /^(\d+)x(\d+)$/.exec(name);
+  const wh = m ? [Number(m[1]), Number(m[2])] : SIZES[name];
+  if (!wh) throw new Error("unknown size " + name + ": use one of " + Object.keys(SIZES).join(", ") + ", or WIDTHxHEIGHT");
+  if (wh[0] < 64 || wh[1] < 64 || wh[0] > 8192 || wh[1] > 8192) throw new Error("size out of range: " + name);
+  return { name, wh };
+});
+const modes = words(flags.modes || process.env.MODES || "night day");
+for (const mode of modes) if (mode !== "night" && mode !== "day") throw new Error("unknown mode " + mode);
 const scene = resolve(process.env.TERRARIUM_SCENE || "./scene");
 
 const token = process.env.GITHUB_TOKEN ||
@@ -131,12 +158,15 @@ function ppmToPng(ppm) {
 }
 
 mkdirSync(out, { recursive: true });
-for (const [flag, name] of [["0", "night"], ["1", "day"]]) {
-  const t = Date.now();
-  execFileSync(scene, [flag, ...args], { cwd: out, stdio: "inherit" });
-  const ppm = join(out, name + ".ppm");
-  writeFileSync(join(out, name + ".png"), ppmToPng(readFileSync(ppm)));
-  rmSync(ppm);
-  console.log(name + ".png", (Date.now() - t) + " ms");
+for (const { name, wh } of sizes) {
+  for (const mode of modes) {
+    const t = Date.now();
+    execFileSync(scene, [mode === "day" ? "1" : "0", ...args, ...wh.map(String)], { cwd: out, stdio: "inherit" });
+    const ppm = join(out, "frame.ppm");
+    const file = name + "-" + mode + ".png";
+    writeFileSync(join(out, file), ppmToPng(readFileSync(ppm)));
+    rmSync(ppm);
+    console.log(file, wh.join("x"), (Date.now() - t) + " ms");
+  }
 }
 writeFileSync(join(out, "terrarium.json"), JSON.stringify(stats, null, 2) + "\n");

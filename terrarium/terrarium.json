@@ -10,16 +10,16 @@
   "stars": 79,
   "languages": [
     {
-      "name": "TypeScript",
-      "color": "#3178c6"
-    },
-    {
       "name": "JavaScript",
       "color": "#f1e05a"
     },
     {
-      "name": "Kotlin",
-      "color": "#A97BFF"
+      "name": "TypeScript",
+      "color": "#3178c6"
+    },
+    {
+      "name": "PLpgSQL",
+      "color": "#336790"
     }
   ]
 }
