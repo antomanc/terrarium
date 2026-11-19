@@ -1,25 +1,25 @@
 {
   "login": "antomanc",
   "seed": 969058,
-  "total": 1127,
-  "active": 57,
-  "last30": 724,
-  "streak": 6,
+  "total": 1270,
+  "active": 59,
+  "last30": 851,
+  "streak": 8,
   "longest": 10,
   "prs": 109,
   "stars": 80,
   "languages": [
     {
+      "name": "Kotlin",
+      "color": "#A97BFF"
+    },
+    {
       "name": "TypeScript",
       "color": "#3178c6"
     },
     {
-      "name": "JavaScript",
-      "color": "#f1e05a"
-    },
-    {
-      "name": "Kotlin",
-      "color": "#A97BFF"
+      "name": "Rust",
+      "color": "#dea584"
     }
   ]
 }
