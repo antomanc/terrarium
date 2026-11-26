@@ -1,13 +1,13 @@
 {
   "login": "antomanc",
   "seed": 969058,
-  "total": 1523,
-  "active": 65,
-  "last30": 1057,
-  "streak": 14,
-  "longest": 14,
+  "total": 1531,
+  "active": 66,
+  "last30": 1009,
+  "streak": 15,
+  "longest": 15,
   "prs": 117,
-  "stars": 81,
+  "stars": 82,
   "languages": [
     {
       "name": "Kotlin",
